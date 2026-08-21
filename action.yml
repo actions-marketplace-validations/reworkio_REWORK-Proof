@@ -1,0 +1,79 @@
+name: 'REWORK Proof Check'
+description: >-
+  Report who actually wrote the commits in a pull request - signature state,
+  author attribution and disclosed AI assistance - as a job summary.
+author: 'REWORK Digital'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: >-
+      Token used to read the pull request's commits. The default
+      ${{ github.token }} is enough; it needs no permissions beyond the
+      read access the workflow already has.
+    required: false
+    default: ${{ github.token }}
+
+  attest:
+    description: >-
+      Request a signed attestation from REWORK. Requires `id-token: write`
+      on the job. No account or API key is needed - the workflow proves its
+      own identity with a short-lived OIDC token. Leave false and the action
+      runs entirely locally, sending nothing anywhere.
+    required: false
+    default: 'false'
+
+  api-url:
+    description: 'REWORK API base. Override only for self-hosted deployments.'
+    required: false
+    default: 'https://api.reworkdigital.io/api/v1'
+
+  fail-on-unsigned:
+    description: >-
+      Fail the check when any commit is unsigned. Off by default and we
+      recommend leaving it off: most repositories never enable signing, and
+      an unsigned commit is not a defect.
+    required: false
+    default: 'false'
+
+outputs:
+  commits-total:
+    description: 'Number of commits examined.'
+    value: ${{ steps.verify.outputs.commits-total }}
+  commits-signed:
+    description: 'How many carried a signature GitHub could verify.'
+    value: ${{ steps.verify.outputs.commits-signed }}
+  commits-foreign:
+    description: 'Commits attributed to an account other than the PR author.'
+    value: ${{ steps.verify.outputs.commits-foreign }}
+  ai-disclosed:
+    description: 'Commits whose message declares AI assistance.'
+    value: ${{ steps.verify.outputs.ai-disclosed }}
+  credential:
+    description: >-
+      The signed VC-JWT, when attest is enabled. Verify it offline against
+      https://api.reworkdigital.io/api/v1/proofs/credentials/jwks.json
+    value: ${{ steps.verify.outputs.credential }}
+
+runs:
+  # Composite running a dependency-free Node script, deliberately, rather
+  # than a `node20` action with a bundled dist/. A bundle means a build step
+  # and a committed artefact that nobody reviews and that silently drifts
+  # from src/. Node 20 ships global fetch, so this needs no packages at all
+  # and what you read here is what runs.
+  using: 'composite'
+  steps:
+    - id: verify
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/src/main.js"
+      env:
+        RP_GITHUB_TOKEN: ${{ inputs.github-token }}
+        RP_ATTEST: ${{ inputs.attest }}
+        RP_API_URL: ${{ inputs.api-url }}
+        RP_FAIL_ON_UNSIGNED: ${{ inputs.fail-on-unsigned }}
+        RP_REPOSITORY: ${{ github.repository }}
+        RP_EVENT_PATH: ${{ github.event_path }}
+        RP_API_SERVER: ${{ github.api_url }}

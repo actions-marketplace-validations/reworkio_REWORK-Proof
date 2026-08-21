@@ -1,0 +1,51 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  syntax:
+    name: Script parses and action.yml is valid
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node syntax check
+        run: node --check src/main.js
+
+      - name: action.yml is valid YAML with the required Marketplace fields
+        run: |
+          python3 - <<'PY'
+          import sys, yaml
+          a = yaml.safe_load(open('action.yml'))
+          # Marketplace refuses a listing missing any of these, and the error
+          # arrives at publish time - long after the tag is cut.
+          for field in ('name', 'description', 'runs', 'branding'):
+              assert a.get(field), f'action.yml is missing {field}'
+          assert a['branding'].get('icon') and a['branding'].get('color'), \
+              'branding needs both icon and color'
+          assert a['runs']['using'] == 'composite', a['runs']['using']
+          print('action.yml OK:', a['name'])
+          PY
+
+  dogfood:
+    name: Run against this pull request
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # The action verifies its own pull requests. If it cannot survive its
+      # own repository it has no business running in anyone else's.
+      - uses: ./
+        id: proof
+
+      - name: The action produced counts
+        run: |
+          echo "total=${{ steps.proof.outputs.commits-total }}"
+          echo "signed=${{ steps.proof.outputs.commits-signed }}"
+          test -n "${{ steps.proof.outputs.commits-total }}"

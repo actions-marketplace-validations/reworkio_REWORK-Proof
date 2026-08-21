@@ -1,0 +1,36 @@
+name: Release
+
+# Consumers pin `uses: Reworkdigital-io/REWORK-Proof@v1`, so the floating v1
+# tag has to follow every patch release. Doing that by hand is the step
+# everyone forgets, and forgetting it means published fixes never reach a
+# single user while the release notes claim otherwise.
+on:
+  release:
+    types: [published]
+
+jobs:
+  move-major-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Point the major tag at this release
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::notice::$TAG is not vMAJOR.MINOR.PATCH — leaving major tags alone"; exit 0 ;;
+          esac
+          MAJOR="${TAG%%.*}"          # v1.2.3 -> v1
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$MAJOR" "$TAG"^{}
+          git push origin -f "refs/tags/$MAJOR"
+          echo "::notice::$MAJOR now points at $TAG"
