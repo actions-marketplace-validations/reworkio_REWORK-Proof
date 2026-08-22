@@ -167,10 +167,10 @@ git commit --allow-empty -m "discloses AI assistance
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
-# Author resolves to a different, real GitHub account
+# Author resolves to a real GitHub account that is a bot ("[bot]" suffix)
 GIT_AUTHOR_NAME="github-actions[bot]" \
 GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com" \
-  git commit --allow-empty -m "authored by someone else"
+  git commit --allow-empty -m "authored by automation"
 
 # Author email linked to no GitHub account at all
 GIT_AUTHOR_NAME="Nobody" GIT_AUTHOR_EMAIL="nobody@example.invalid" \
