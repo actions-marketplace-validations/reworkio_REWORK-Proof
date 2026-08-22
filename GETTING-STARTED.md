@@ -1,0 +1,201 @@
+# Getting started
+
+Two ways to use REWORK Proof on a repository. They report the same thing and
+you can run either, or both.
+
+| | **Action** | **GitHub App** |
+|---|---|---|
+| What you add | one workflow file | nothing |
+| What you grant | nothing | read access to the repo |
+| Where the result appears | the workflow run's summary | a check on the pull request |
+| Runs on | pull requests your workflow watches | every pull request, automatically |
+| Works on forks' pull requests | yes | yes |
+
+**Pick the Action if you'd rather grant nothing.** It reads the pull request
+with the token your workflow already has, and by default sends nothing
+anywhere.
+
+**Pick the App if you'd rather add nothing.** No files, no workflow, and it
+covers pull requests opened before anyone remembers to add CI.
+
+---
+
+## Path A — the Action
+
+### 1. Create a branch on your repository
+
+A brand-new repository is fine. It needs at least one commit on the default
+branch so a pull request has something to target.
+
+### 2. Add the workflow
+
+Create `.github/workflows/proof.yml`:
+
+```yaml
+name: Proof
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Reworkdigital-io/REWORK-Proof@v1
+```
+
+That's the whole setup — no token to create, no secret to store, no account.
+
+The `permissions:` block is spelled out because some organisations default new
+workflows to a restricted token. If yours doesn't, the action works without it.
+
+Commit that file to your default branch, so it exists before the pull request
+you want it to run on.
+
+### 3. Open a pull request
+
+Any branch with at least one commit. The workflow runs on `opened`,
+`synchronize` and `reopened`.
+
+### 4. Read the result
+
+On the pull request → **Checks** → **Proof** → the job summary panel. You'll
+get a short report: how many commits carried a verifiable signature, whether
+any were authored by someone other than you, and whether any declared AI
+assistance.
+
+Nothing has left your repository at this point.
+
+### 5. Optional — a signed attestation
+
+If you want a portable artefact a client can verify without taking your word
+for it, add `attest: true` and the `id-token` permission:
+
+```yaml
+name: Proof
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: read
+  id-token: write        # required for attestation
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Reworkdigital-io/REWORK-Proof@v1
+        with:
+          attest: true
+```
+
+Still no API key: the workflow mints a short-lived OIDC token that proves, on
+GitHub's authority, which repository and run this is. **Only counts are sent
+— never your code, never commit messages.** The result is a signed credential
+anyone can verify offline against REWORK's published key.
+
+If the attestation call fails, your build still passes. The local result stands
+on its own.
+
+One limit worth knowing: GitHub does not issue an OIDC token to a workflow
+triggered by a pull request **from a fork**. The report still runs there; only
+the attestation is skipped, harmlessly.
+
+---
+
+## Path B — the GitHub App
+
+### 1. Install it
+
+Go to **https://github.com/apps/rework-proof** and press **Install**.
+
+### 2. Choose where it runs
+
+Pick **Only select repositories** and choose the one you want. You can add
+more later; you never have to grant it your whole account.
+
+### 3. Read what it asks for
+
+The install screen lists the permissions. It asks to *read* pull requests and
+their commits, and to write **checks** — that last one is how the result
+appears on the pull request. It does not ask for write access to your code.
+
+### 4. Open a pull request
+
+Nothing else to configure. Within a few seconds a check named **REWORK Proof**
+appears on the pull request.
+
+### 5. Read the result
+
+The check's **Details** page carries the same report the Action produces.
+
+---
+
+## Trying it properly
+
+A pull request of ordinary commits only exercises one path. These four cover
+the interesting ones:
+
+```bash
+git checkout -b proof-test
+
+git commit --allow-empty -m "plain unsigned commit"
+
+git commit --allow-empty -m "discloses AI assistance
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# Author resolves to a different, real GitHub account
+GIT_AUTHOR_NAME="github-actions[bot]" \
+GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com" \
+  git commit --allow-empty -m "authored by someone else"
+
+# Author email linked to no GitHub account at all
+GIT_AUTHOR_NAME="Nobody" GIT_AUTHOR_EMAIL="nobody@example.invalid" \
+  git commit --allow-empty -m "unresolvable author"
+
+git push -u origin proof-test
+```
+
+Open the pull request and check four things:
+
+| What to look for | Why it matters |
+|---|---|
+| The result is never a red ✗ | Most repositories don't sign commits. A failing check on an honest pull request is wrong. |
+| The AI commit is named, but the result isn't lowered | Penalising the trailer would just teach people to delete it, destroying the signal for whoever needed it. |
+| `github-actions[bot]` is listed under "authored by someone other than…" | Common and legitimate on a rebased or co-developed branch — surfaced, not accused. |
+| The **unresolvable** author is *not* listed there | A commit whose email never matched a GitHub account is ordinary. Treating it as an impostor would make the check noise. |
+
+---
+
+## If something doesn't appear
+
+**No check run at all (App).** Confirm the App is installed on *that*
+repository — installation is per-repository, not per-account. Check
+**Settings → GitHub Apps → REWORK Proof → Configure**.
+
+**The workflow didn't run (Action).** `proof.yml` has to exist on the branch
+the pull request targets, not only on the branch it comes from. Commit it to
+your default branch first.
+
+**Result says "inconclusive".** The commit read stops at 300 commits. A larger
+pull request is reported as inconclusive rather than clean — a partial read
+claiming "all verified" is the one failure mode that actively misleads.
+
+**Result is neutral, not success.** Neutral is the normal outcome whenever
+anything is unproven: an unsigned commit, an unresolved author, a truncated
+read. It is not a failure and it does not block a merge.
+
+---
+
+## Verifying without trusting us
+
+Attestations are signed with Ed25519 and REWORK's public key is published at
+`https://api.reworkdigital.io/api/v1/proofs/credentials/jwks.json`. Any JOSE
+library verifies one offline — no call to REWORK, no dependency on us
+continuing to exist. That is the point of issuing them this way.
+
+For AI agents, the same checks are available over MCP: see
+[`mcp/`](mcp/).

@@ -20,6 +20,11 @@ jobs:
 
 That's the whole setup.
 
+**New here?** [**GETTING-STARTED.md**](GETTING-STARTED.md) walks a fresh
+repository through both this action and the GitHub App — which to choose, what
+each one grants, and a set of commits that exercise every case so you can see
+what the report actually does before trusting it.
+
 ### One-click setup
 
 Replace `OWNER/REPO` with your own and open this — GitHub's editor opens with
