@@ -19,6 +19,8 @@
 
 'use strict';
 
+const crypto = require('node:crypto');
+
 const API = (process.env.REWORK_API_URL || 'https://api.reworkdigital.io/api/v1').replace(/\/$/, '');
 const SERVER_VERSION = '1.0.0';
 
@@ -113,6 +115,29 @@ const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'lookup_rework_attestation',
+    description:
+      'Check whether REWORK actually ISSUED a credential - not just whether its '
+      + 'signature verifies. A forged-but-well-formed token fails this; a real one '
+      + 'returns its issuance record and the CURRENT OpenTimestamps receipt, which '
+      + 'may have been upgraded to a Bitcoin confirmation since issue. Pass the '
+      + 'credential (its sha256 is the lookup key) or the digest directly.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        credential: {
+          type: 'string',
+          description: 'The VC-JWT. Hashed locally; never sent anywhere.',
+        },
+        digest: {
+          type: 'string',
+          description: 'sha256 hex of the credential, if you already have it.',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
 ];
 
 async function http(path, { method = 'GET', body } = {}) {
@@ -172,6 +197,41 @@ async function callTool(name, args) {
       return { assurance: level, ...entry };
     }
     return { assurance_levels: ASSURANCE, credential_types: CREDENTIAL_TYPES };
+  }
+
+  if (name === 'lookup_rework_attestation') {
+    let digest = args && args.digest;
+    if (!digest && args && args.credential) {
+      // Hashed locally: the credential itself never leaves this process.
+      digest = crypto.createHash('sha256').update(args.credential, 'utf8').digest('hex');
+    }
+    if (!digest || !/^[0-9a-f]{64}$/.test(String(digest).toLowerCase())) {
+      throw new Error('pass either `credential` (the VC-JWT) or `digest` (64 hex chars)');
+    }
+    digest = String(digest).toLowerCase();
+    try {
+      const record = await http(`/github-app/attestations/${digest}`);
+      return {
+        ...record,
+        assurance_note:
+          'Issuance confirms REWORK signed a credential with this digest. It is '
+          + 'still not a review of the code or a claim the work is any good - '
+          + 'and a "submitted" timestamp is a calendar promise, only "confirmed" '
+          + 'means anchored in Bitcoin.',
+      };
+    } catch (err) {
+      if (String(err.message).includes('REWORK API 404')) {
+        return {
+          issued: false,
+          digest_sha256: digest,
+          assurance_note:
+            'REWORK has no record of issuing a credential with this digest. A '
+            + 'valid signature with no issuance record deserves suspicion: it '
+            + 'could predate the registry, or it could be a key compromise.',
+        };
+      }
+      throw err;
+    }
   }
 
   throw new Error(`unknown tool: ${name}`);

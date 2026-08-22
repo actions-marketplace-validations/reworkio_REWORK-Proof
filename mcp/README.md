@@ -29,6 +29,7 @@ No API key. No account. Every tool here reads public endpoints.
 | `verify_rework_credential` | Checks a VC-JWT's signature and returns the issuer, the subject, and the ceiling on what the credential proves. |
 | `get_rework_issuer_keys` | Fetches REWORK's public JWKS so you can verify offline yourself instead of trusting this server. |
 | `explain_rework_assurance` | Explains what an assurance level proves and what it explicitly does not. |
+| `lookup_rework_attestation` | Checks whether REWORK actually *issued* a credential — a forged-but-well-formed token fails this — and returns the current OpenTimestamps receipt, which may have been upgraded to a Bitcoin confirmation since issue. The credential is hashed locally; it never leaves your machine. |
 
 ### Why the verdict ships with a caveat
 
