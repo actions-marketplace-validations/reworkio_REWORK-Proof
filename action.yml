@@ -1,7 +1,9 @@
 name: 'REWORK Proof Check'
-description: >-
-  Report who actually wrote the commits in a pull request - signature state,
-  author attribution and disclosed AI assistance - as a job summary.
+# Marketplace rejects a description of 125 characters or more, and only says
+# so at publish time - after the tag is cut. This one is 118. Keep it a single
+# quoted line: a folded >- block reads fine here but makes the length easy to
+# grow past the limit without noticing.
+description: 'Report who actually wrote the commits in a pull request: signature state, author attribution, disclosed AI assistance.'
 author: 'REWORK Digital'
 
 branding:
@@ -11,10 +13,14 @@ branding:
 inputs:
   github-token:
     description: >-
-      Token used to read the pull request's commits. The default
-      ${{ github.token }} is enough; it needs no permissions beyond the
-      read access the workflow already has.
+      Token used to read the pull request's commits. The default workflow
+      token is enough; it needs no permissions beyond the read access the
+      workflow already has.
     required: false
+    # Expression syntax belongs here, where GitHub evaluates it - not in the
+    # description above, where it is only ever displayed to a reader. This is
+    # the same default actions/github-script uses, and it is what lets the
+    # action work with no configuration at all.
     default: ${{ github.token }}
 
   attest:
@@ -57,6 +63,19 @@ outputs:
       The signed VC-JWT, when attest is enabled. Verify it offline against
       https://api.reworkdigital.io/api/v1/proofs/credentials/jwks.json
     value: ${{ steps.verify.outputs.credential }}
+  credential-sha256:
+    description: 'Digest the OpenTimestamps receipt covers.'
+    value: ${{ steps.verify.outputs.credential-sha256 }}
+  timestamp-status:
+    description: >-
+      "submitted" when a calendar accepted the digest, "unavailable" when
+      none were reachable. Never "confirmed" - that needs a Bitcoin block.
+    value: ${{ steps.verify.outputs.timestamp-status }}
+  ots-receipt:
+    description: >-
+      Base64 of the detached .ots file. Write it to disk and verify or
+      upgrade it with standard `ots` tooling.
+    value: ${{ steps.verify.outputs.ots-receipt }}
 
 runs:
   # Composite running a dependency-free Node script, deliberately, rather

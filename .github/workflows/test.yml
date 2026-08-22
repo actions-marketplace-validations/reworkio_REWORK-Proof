@@ -26,6 +26,28 @@ jobs:
               assert a.get(field), f'action.yml is missing {field}'
           assert a['branding'].get('icon') and a['branding'].get('color'), \
               'branding needs both icon and color'
+          # Marketplace refuses 125 characters or more, and only says so on the
+          # Release page - after the tag is cut and the release is half made.
+          n = len(a['description'])
+          assert n < 125, \
+              f'description is {n} chars; Marketplace requires fewer than 125'
+          print(f'description: {n}/124 chars')
+
+          # Every description here is shown verbatim - on the Marketplace
+          # listing and in editor tooltips - and never evaluated. An
+          # expression in one renders as literal ${{ ... }} noise to the
+          # reader, and looks like a mistake to every linter that sees it.
+          def descriptions(node, path='action.yml'):
+              if isinstance(node, dict):
+                  for k, v in node.items():
+                      if k == 'description' and isinstance(v, str):
+                          yield path, v
+                      else:
+                          yield from descriptions(v, f'{path}.{k}')
+          for where, text in descriptions(a):
+              assert '${{' not in text, \
+                  f'{where} has an expression in prose: {text.strip()[:70]}'
+          print('no expressions in any description')
           assert a['runs']['using'] == 'composite', a['runs']['using']
           print('action.yml OK:', a['name'])
           PY

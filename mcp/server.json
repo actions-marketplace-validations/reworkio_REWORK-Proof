@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.Reworkdigital-io/rework-proof",
+  "description": "Verify REWORK credentials: is this delivered work genuinely the author's?",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/Reworkdigital-io/REWORK-Proof",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@reworkdigital.io/rework-proof-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

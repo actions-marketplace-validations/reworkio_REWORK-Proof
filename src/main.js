@@ -179,7 +179,27 @@ async function main() {
       if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
       const body = await res.json();
       out('credential', body.credential || '');
+
+      const ts = body.timestamp || {};
+      out('timestamp-status', ts.status || 'unavailable');
+      out('credential-sha256', ts.digest_sha256 || '');
+      if (ts.ots_base64) out('ots-receipt', ts.ots_base64);
+
       lines.push('', '---', '', `Signed attestation issued. Verify it offline against [REWORK's public key](${body.verify_url}) — no call back to REWORK required.`);
+
+      if (ts.status === 'submitted') {
+        // "submitted", not "confirmed": the calendar has promised to include
+        // this digest in its next Bitcoin batch, which lands roughly hourly.
+        // Saying "anchored in Bitcoin" now would be a claim the receipt does
+        // not yet support.
+        lines.push('', `Timestamp submitted to OpenTimestamps via \`${ts.calendar}\`. `
+          + `The receipt covers \`sha256:${(ts.digest_sha256 || '').slice(0, 16)}…\` and becomes `
+          + `independently verifiable once the calendar's next Bitcoin batch confirms — `
+          + `upgrade it any time with \`ots upgrade\`.`);
+      } else {
+        lines.push('', '_No timestamp: the OpenTimestamps calendars were unreachable. '
+          + 'The credential is unaffected — it is signed and verifiable either way._');
+      }
     } catch (err) {
       // An attestation failure must not fail somebody's build. The local
       // result above is complete and correct on its own.
@@ -187,6 +207,14 @@ async function main() {
       process.stdout.write(`::warning::REWORK attestation skipped: ${err.message}\n`);
     }
   }
+
+  // Someone who reached the Action first may actually want the App: it needs
+  // no workflow file and covers every repo at once. Saying so here costs a
+  // line and catches the people who arrived through the wrong door.
+  lines.push('', '---', '',
+    '<sub>Want this on every pull request without a workflow file? '
+    + '[Install the REWORK Proof App](https://github.com/apps/rework-proof). '
+    + 'Prefer granting no repository access at all? You are already in the right place.</sub>');
 
   summary(lines.join('\n'));
 

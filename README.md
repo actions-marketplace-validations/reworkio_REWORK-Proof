@@ -20,6 +20,17 @@ jobs:
 
 That's the whole setup.
 
+### One-click setup
+
+Replace `OWNER/REPO` with your own and open this — GitHub's editor opens with
+the workflow already written, and you just press **Commit**:
+
+```
+https://github.com/OWNER/REPO/new/main?filename=.github/workflows/proof.yml&value=name%3A%20Proof%0Aon%3A%20pull_request%0A%0Ajobs%3A%0A%20%20proof%3A%0A%20%20%20%20runs-on%3A%20ubuntu-latest%0A%20%20%20%20steps%3A%0A%20%20%20%20%20%20-%20uses%3A%20Reworkdigital-io%2FREWORK-Proof%40v1%0A
+```
+
+If your default branch isn't `main`, change the `/new/main` segment to match.
+
 ## What it reports
 
 For every commit on the pull request:
