@@ -131,6 +131,26 @@ appears on the pull request.
 
 The check's **Details** page carries the same report the Action produces.
 
+### 6. Optional — per-repository configuration
+
+Accounts ending in `[bot]` are classed as automation automatically. If your
+repository also has a release or CI account that *doesn't* carry the `[bot]`
+suffix, you can list it in `.github/rework-proof.yml`:
+
+```yaml
+# .github/rework-proof.yml
+# Extra accounts to class as automation instead of human co-authors.
+automation_authors:
+  - my-release-bot
+```
+
+This only relabels: the commits stay listed (under "Automation commits"),
+they still have to be signed for a green result, and the summary says when
+this file did the classing. The App reads the file from your **default
+branch** — a pull request editing it is still verified under the rules the
+default branch had, so a PR can't write its own exemptions. No file means no
+change to how the check behaves.
+
 ---
 
 ## Trying it properly
