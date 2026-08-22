@@ -114,6 +114,7 @@ async function main() {
 
   let signed = 0;
   const foreign = [];
+  const automation = [];
   const aiDisclosed = [];
   for (const c of commits) {
     const v = (c.commit && c.commit.verification) || {};
@@ -121,10 +122,16 @@ async function main() {
 
     // A commit with no resolved GitHub account is ordinary — a local git
     // config that never matched an account. Only a *different* account is
-    // worth surfacing.
+    // worth surfacing. GitHub machine accounts end in "[bot]" — reserved
+    // punctuation no human login can contain — and a dependabot bump is not
+    // a co-author, so those are classed as automation, not foreign.
     const login = c.author && c.author.login;
     if (prAuthor && login && login.toLowerCase() !== prAuthor.toLowerCase()) {
-      foreign.push(`${c.sha.slice(0, 7)} (${login})`);
+      if (login.endsWith('[bot]')) {
+        automation.push(`${c.sha.slice(0, 7)} (${login})`);
+      } else {
+        foreign.push(`${c.sha.slice(0, 7)} (${login})`);
+      }
     }
     if (AI_TRAILER.test((c.commit && c.commit.message) || '')) {
       aiDisclosed.push(c.sha.slice(0, 7));
@@ -135,6 +142,7 @@ async function main() {
   out('commits-total', total);
   out('commits-signed', signed);
   out('commits-foreign', foreign.length);
+  out('commits-automation', automation.length);
   out('ai-disclosed', aiDisclosed.length);
 
   const lines = ['## REWORK Proof', ''];
@@ -143,8 +151,14 @@ async function main() {
     if (foreign.length) {
       lines.push('', `**Authored by someone other than @${prAuthor}:** ${foreign.slice(0, 10).join(', ')}`);
       lines.push('', 'That is common and legitimate on a rebased or co-developed branch. It is shown because whoever is paying for this work may want to know.');
+    } else if (automation.length) {
+      lines.push('', `Every human-authored commit GitHub could resolve is attributed to **@${prAuthor}**.`);
     } else {
       lines.push('', `Every commit GitHub could resolve is attributed to **@${prAuthor}**.`);
+    }
+    if (automation.length) {
+      lines.push('', `**Automation commits:** ${automation.slice(0, 10).join(', ')}`);
+      lines.push('', 'Dependency bumps and workflow commits, listed separately from human co-authors. Routine on most repositories.');
     }
   }
   if (aiDisclosed.length) {

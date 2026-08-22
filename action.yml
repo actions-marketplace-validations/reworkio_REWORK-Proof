@@ -53,8 +53,15 @@ outputs:
     description: 'How many carried a signature GitHub could verify.'
     value: ${{ steps.verify.outputs.commits-signed }}
   commits-foreign:
-    description: 'Commits attributed to an account other than the PR author.'
+    description: >-
+      Commits attributed to a human account other than the PR author.
+      Bot accounts are counted under commits-automation instead.
     value: ${{ steps.verify.outputs.commits-foreign }}
+  commits-automation:
+    description: >-
+      Commits authored by a bot account ("[bot]" suffix) — dependency
+      bumps, workflow commits. Listed separately from human co-authors.
+    value: ${{ steps.verify.outputs.commits-automation }}
   ai-disclosed:
     description: 'Commits whose message declares AI assistance.'
     value: ${{ steps.verify.outputs.ai-disclosed }}

@@ -165,7 +165,7 @@ Open the pull request and check four things:
 |---|---|
 | The result is never a red ✗ | Most repositories don't sign commits. A failing check on an honest pull request is wrong. |
 | The AI commit is named, but the result isn't lowered | Penalising the trailer would just teach people to delete it, destroying the signal for whoever needed it. |
-| `github-actions[bot]` is listed under "authored by someone other than…" | Common and legitimate on a rebased or co-developed branch — surfaced, not accused. |
+| `github-actions[bot]` is listed under "Automation commits", not as a human co-author | Bot accounts end in `[bot]` — a dependency bump is routine, and listing it beside human co-authors would read as an accusation. |
 | The **unresolvable** author is *not* listed there | A commit whose email never matched a GitHub account is ordinary. Treating it as an impostor would make the check noise. |
 
 ---

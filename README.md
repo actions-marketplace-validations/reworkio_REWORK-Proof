@@ -44,7 +44,8 @@ For every commit on the pull request:
 - **Author attribution** — whether the account GitHub resolved the commit to
   is the pull request's author. A commit whose email never matched a GitHub
   account is *not* flagged; that's ordinary, and flagging it would make the
-  check noise.
+  check noise. Bot accounts (a `[bot]` suffix — dependabot, github-actions)
+  are classed as automation, listed separately from human co-authors.
 - **Disclosed AI assistance** — a `Co-Authored-By: Claude` (or Copilot, GPT,
   Gemini, …) trailer.
 
@@ -115,7 +116,8 @@ judgement of its quality. The credential says so in its own disclaimer.
 |---|---|
 | `commits-total` | Commits examined. |
 | `commits-signed` | How many carried a verifiable signature. |
-| `commits-foreign` | Commits attributed to an account other than the PR author. |
+| `commits-foreign` | Commits attributed to a human account other than the PR author. |
+| `commits-automation` | Commits authored by a bot account (`[bot]` suffix). |
 | `ai-disclosed` | Commits whose message declares AI assistance. |
 | `credential` | The signed VC-JWT, when `attest` is enabled. |
 
