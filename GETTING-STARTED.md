@@ -210,6 +210,79 @@ read. It is not a failure and it does not block a merge.
 
 ---
 
+## Path C — joining a Hugging Face publication to its build
+
+If your workflow trains or packages a model and pushes it to the Hugging
+Face Hub, the action can tie the two together: a signed statement that the
+exact bytes now on your HF repository came out of this run, from a
+repository whose owner also holds the verified REWORK control claim on
+that HF repo. Neither platform can make that statement alone.
+
+Two one-time prerequisites, both on your own accounts:
+
+1. Install and link the REWORK Proof App for the GitHub user or org that
+   owns the workflow repository.
+2. Complete REWORK's repo-control ceremony on the Hugging Face repository
+   (Verification → Hugging Face on your REWORK profile).
+
+Then add the action AFTER your own upload step — for example as
+`.github/workflows/publish-model.yml`:
+
+```yaml
+name: Publish model
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      # Your real workflow checks out and builds first. Then YOUR OWN
+      # publish step, with your own credentials - the action never uploads
+      # and never holds a write token.
+      - run: huggingface-cli upload <your-hf-owner>/<your-model> ./out
+        env:
+          HF_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
+
+      - uses: Reworkdigital-io/REWORK-Proof@v1
+        with:
+          attest: true
+          hf-repo: <your-hf-owner>/<your-model>
+          hf-token: ${{ secrets.HF_READ_TOKEN }}   # READ-only; see below
+```
+
+`hf-token` is optional for public repositories but recommended: runners
+share an anonymous rate limit, and a fine-grained token with read-only
+content permission keeps the read steady. Never pass a write token — the
+action has no use for one, by design.
+
+What happens: the action reads your HF repository's current state and
+digests its file inventory; REWORK then reads the repository again
+*itself*, and only issues the credential when its own read reproduces the
+digest and one REWORK account holds both sides. The result appears in the
+job summary:
+
+**Joined** — the signed credential is in the `hf-join-credential` output,
+verifiable offline like every other attestation. The summary names the
+workflow beside the verdict on purpose: the credential proves this run
+*carried* these bytes, not what the run did to make them — a reader judges
+that from the workflow itself.
+
+**Unbound / mismatch / ambiguous** — neutral statuses, never failed
+builds. Unbound means the two one-time steps above aren't complete under
+one REWORK account; mismatch usually means the repo changed while being
+read (re-run); ambiguous means this exact content is already recorded
+under another repository, so no credential can say which publication it
+belongs to.
+
+---
+
 ## Verifying without trusting us
 
 Attestations are signed with Ed25519 and REWORK's public key is published at

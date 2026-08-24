@@ -45,6 +45,30 @@ inputs:
     required: false
     default: 'false'
 
+  hf-repo:
+    description: >-
+      Hugging Face repository (owner/name) to JOIN this run to, read AFTER
+      your own upload step. The action reads the repo's current state and
+      asks REWORK to tie it to this run - REWORK re-reads the repo itself
+      and only issues a credential when the content matches, the repo
+      carries your verified REWORK control claim, and the same REWORK
+      account links this GitHub owner's App installation. Requires
+      `attest: true` and `id-token: write`. The action NEVER uploads:
+      publishing to the Hub stays your own workflow step, with your own
+      credentials, before this one.
+    required: false
+    default: ''
+
+  hf-token:
+    description: >-
+      Hugging Face READ token used only to read the repository state
+      (private repos, and steadier rate limits than the runner's shared
+      anonymous quota). A fine-grained token with read-only content
+      permission is exactly enough - never pass a write token; the action
+      has no use for one.
+    required: false
+    default: ''
+
 outputs:
   commits-total:
     description: 'Number of commits examined.'
@@ -83,6 +107,21 @@ outputs:
       Base64 of the detached .ots file. Write it to disk and verify or
       upgrade it with standard `ots` tooling.
     value: ${{ steps.verify.outputs.ots-receipt }}
+  hf-join-outcome:
+    description: >-
+      Result of the Hugging Face join when hf-repo is set: "joined",
+      "unbound", "mismatch", or "ambiguous". Only "joined" carries a
+      credential; the others are neutral statuses with guidance in the job
+      summary, never failures.
+    value: ${{ steps.verify.outputs.hf-join-outcome }}
+  hf-join-credential:
+    description: 'The signed joined VC-JWT, when the join promoted.'
+    value: ${{ steps.verify.outputs.hf-join-credential }}
+  hf-manifest-digest:
+    description: >-
+      sha256 manifest digest of the HF repo tree the join describes
+      (sorted path:oid:size lines, LFS sha preferred).
+    value: ${{ steps.verify.outputs.hf-manifest-digest }}
 
 runs:
   # Composite running a dependency-free Node script, deliberately, rather
@@ -103,3 +142,5 @@ runs:
         RP_REPOSITORY: ${{ github.repository }}
         RP_EVENT_PATH: ${{ github.event_path }}
         RP_API_SERVER: ${{ github.api_url }}
+        RP_HF_REPO: ${{ inputs.hf-repo }}
+        RP_HF_TOKEN: ${{ inputs.hf-token }}
