@@ -1,9 +1,9 @@
 name: Release
 
-# Consumers pin `uses: Reworkdigital-io/REWORK-Proof@v1`, so the floating v1
-# tag has to follow every patch release. Doing that by hand is the step
-# everyone forgets, and forgetting it means published fixes never reach a
-# single user while the release notes claim otherwise.
+# Workflows pin `uses: Reworkdigital-io/REWORK-Proof@v1`, so the floating v1
+# tag has to move to every patch release. Moving it here is what makes a
+# published fix actually reach those workflows: a release whose major tag
+# stayed behind ships to nobody, while its notes say otherwise.
 on:
   release:
     types: [published]

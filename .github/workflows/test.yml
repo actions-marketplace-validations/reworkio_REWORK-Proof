@@ -20,14 +20,14 @@ jobs:
           python3 - <<'PY'
           import sys, yaml
           a = yaml.safe_load(open('action.yml'))
-          # Marketplace refuses a listing missing any of these, and the error
-          # arrives at publish time - long after the tag is cut.
+          # A Marketplace listing is refused without all four, and the
+          # refusal only arrives at publish time - so it is checked here.
           for field in ('name', 'description', 'runs', 'branding'):
               assert a.get(field), f'action.yml is missing {field}'
           assert a['branding'].get('icon') and a['branding'].get('color'), \
               'branding needs both icon and color'
-          # Marketplace refuses 125 characters or more, and only says so on the
-          # Release page - after the tag is cut and the release is half made.
+          # Marketplace refuses a description of 125 characters or more, and
+          # only reports it at publish time - so the limit is enforced here.
           n = len(a['description'])
           assert n < 125, \
               f'description is {n} chars; Marketplace requires fewer than 125'

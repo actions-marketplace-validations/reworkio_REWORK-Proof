@@ -1,8 +1,4 @@
 name: 'REWORK Proof Check'
-# Marketplace rejects a description of 125 characters or more, and only says
-# so at publish time - after the tag is cut. This one is 118. Keep it a single
-# quoted line: a folded >- block reads fine here but makes the length easy to
-# grow past the limit without noticing.
 description: 'Report who actually wrote the commits in a pull request: signature state, author attribution, disclosed AI assistance.'
 author: 'REWORK Digital'
 
@@ -17,9 +13,7 @@ inputs:
       token is enough; it needs no permissions beyond the read access the
       workflow already has.
     required: false
-    # Expression syntax belongs here, where GitHub evaluates it - not in the
-    # description above, where it is only ever displayed to a reader. This is
-    # the same default actions/github-script uses, and it is what lets the
+    # The same default actions/github-script uses, which is what lets this
     # action work with no configuration at all.
     default: ${{ github.token }}
 

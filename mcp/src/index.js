@@ -24,8 +24,9 @@ const crypto = require('node:crypto');
 const API = (process.env.REWORK_API_URL || 'https://api.reworkdigital.io/api/v1').replace(/\/$/, '');
 const SERVER_VERSION = '1.0.0';
 
-// Protocol revisions this server understands. We echo the client's if we know
-// it, otherwise answer with our newest and let the client decide.
+// Protocol revisions this server understands. The client's own revision is
+// echoed back when it appears here; otherwise the newest is offered and the
+// client decides whether it can proceed.
 const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const HTTP_TIMEOUT_MS = 15000;
 

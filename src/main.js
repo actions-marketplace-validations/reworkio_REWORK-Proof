@@ -102,12 +102,13 @@ async function hfGet(url, hfToken) {
 }
 
 /**
- * Canonical manifest digest — MUST stay byte-identical with the backend's
- * implementation (backend/app/services/hf_join.py::manifest_digest):
+ * Canonical manifest digest. REWORK recomputes this server-side from its
+ * own read of the repository and only issues a credential when the two
+ * agree, so the rule has to be exact and stable in both places:
  * files only; each line `path:oid:size` preferring the LFS sha256 over the
- * git blob oid; lines sorted by UTF-8 byte order (which equals Python's
- * default code-point sort — plain JS sort differs on astral-plane
- * characters, hence the Buffer comparator); joined with newline; sha256.
+ * git blob oid; lines sorted by UTF-8 byte order (plain JS sort differs on
+ * astral-plane characters, hence the Buffer comparator); joined with
+ * newline; sha256 of the result.
  */
 function hfManifestDigest(entries) {
   const lines = [];
@@ -219,7 +220,7 @@ async function main() {
   try {
     event = JSON.parse(fs.readFileSync(process.env.RP_EVENT_PATH, 'utf8'));
   } catch {
-    /* not every event carries a payload we can read */
+    /* not every event carries a readable payload */
   }
 
   const pr = event.pull_request;
@@ -365,9 +366,9 @@ async function main() {
 
   await hfJoin(lines);
 
-  // Someone who reached the Action first may actually want the App: it needs
-  // no workflow file and covers every repo at once. Saying so here costs a
-  // line and catches the people who arrived through the wrong door.
+  // The same report is available as a GitHub App, which needs no workflow
+  // file and covers every repository at once. Named here because the
+  // trade-off between the two is not visible from inside a job summary.
   lines.push('', '---', '',
     '<sub>Want this on every pull request without a workflow file? '
     + '[Install the REWORK Proof App](https://github.com/apps/rework-proof). '
