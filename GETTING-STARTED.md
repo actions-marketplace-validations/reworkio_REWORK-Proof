@@ -131,6 +131,19 @@ appears on the pull request.
 
 The check's **Details** page carries the same report the Action produces.
 
+Where that link points depends on whether we can prove whose pull request it
+is. A check run is public and sits on somebody else's repository, so a link
+saying "this is that developer's REWORK profile" is an identity claim made in
+front of their colleagues. It is only made when **both ends are verified**:
+GitHub told us which account installed the App, and that same account came
+back through the setup link and signed in to REWORK. Otherwise the link goes
+to REWORK's public proofs page and the summary carries an invitation, which
+claims nothing about anyone.
+
+A profile field you type yourself is never used for this. If it were, anyone
+could advertise on a stranger's pull requests by typing that stranger's login
+into a settings box.
+
 ### 6. Optional — per-repository configuration
 
 Accounts ending in `[bot]` are classed as automation automatically. If your
@@ -212,11 +225,23 @@ read. It is not a failure and it does not block a merge.
 
 ## Path C — joining a Hugging Face publication to its build
 
-If your workflow trains or packages a model and pushes it to the Hugging
-Face Hub, the action can tie the two together: a signed statement that the
-exact bytes now on your HF repository came out of this run, from a
-repository whose owner also holds the verified REWORK control claim on
-that HF repo. Neither platform can make that statement alone.
+If your workflow builds something and pushes it to the Hugging Face Hub, the
+action can tie the two together: a signed statement that the exact bytes now
+on your HF repository came out of this run, from a repository whose owner
+also holds the verified REWORK control claim on that HF repo. Neither
+platform can make that statement alone.
+
+**Models, Spaces and datasets all work.** `hf-repo` takes a bare `owner/name`
+for a model, and the Hub's own prefixes for the other two:
+
+| Publishing | `hf-repo:` value |
+|---|---|
+| a model | `my-org/my-model` |
+| a Space | `spaces/my-org/my-demo` |
+| a dataset | `datasets/my-org/my-corpus` |
+
+The full workflow below uses a model; substitute either prefixed form and
+nothing else changes.
 
 Two one-time prerequisites, both on your own accounts:
 
@@ -282,6 +307,31 @@ under another repository, so no credential can say which publication it
 belongs to.
 
 ---
+
+## A verified proof does not stay verified on its own
+
+Worth knowing if you are relying on one, on either side of a hire.
+
+A REWORK proof that points at a GitHub repository is **re-observed**, not
+filed and forgotten. If the repository is later deleted, made private,
+transferred to someone else, or blocked, the proof decays instead of
+continuing to read "verified" against evidence a reader can no longer open.
+
+The rules are deliberately narrow, because the failure mode of a freshness
+check is punishing people for things that are not their fault:
+
+- **A rename by the same owner is followed, not punished.** The work is
+  untouched, and leaving a proof pointing at the old name is the unsafe
+  option once anyone else can claim it.
+- **Outages, timeouts and rate limits decay nothing.** They are our problem,
+  not yours.
+- **Two consecutive definitive failures** are needed before anything is
+  withdrawn. One bad minute should not cost somebody their record.
+
+The re-check reads your repository the way an anonymous visitor would, on
+purpose. Verification ran on your own token, but the question afterwards is
+whether **a buyer** can still open the evidence, and a private repo answers
+that differently from a public one.
 
 ## Verifying without trusting us
 
