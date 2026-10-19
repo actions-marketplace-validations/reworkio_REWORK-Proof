@@ -1,6 +1,6 @@
 name: Release
 
-# Workflows pin `uses: Reworkdigital-io/REWORK-Proof@v1`, so the floating v1
+# Workflows pin `uses: reworkio/REWORK-Proof@v1`, so the floating v1
 # tag has to move to every patch release. Moving it here is what makes a
 # published fix actually reach those workflows: a release whose major tag
 # stayed behind ships to nobody, while its notes say otherwise.

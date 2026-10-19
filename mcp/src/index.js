@@ -20,9 +20,18 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const API = (process.env.REWORK_API_URL || 'https://api.reworkdigital.io/api/v1').replace(/\/$/, '');
-const SERVER_VERSION = '1.0.0';
+
+const readJson = (name) => JSON.parse(fs.readFileSync(path.join(__dirname, name), 'utf8'));
+
+// The version a client sees in serverInfo is package.json's, read at start,
+// so it cannot drift from what npm published. It was a typed '1.0.0' while
+// the package was 1.1.0 (found 2026-10-18); check_rework_proof_mcp.py pins
+// this now. package.json sits one level up from src/, inside the tarball.
+const SERVER_VERSION = readJson('../package.json').version;
 
 // Protocol revisions this server understands. The client's own revision is
 // echoed back when it appears here; otherwise the newest is offered and the
@@ -34,35 +43,36 @@ const log = (...a) => process.stderr.write(a.join(' ') + '\n');
 
 /**
  * What REWORK's assurance levels mean, and — more importantly — what they do
- * not. Held locally rather than fetched: an agent asking "how much does this
- * prove?" should get the same answer when the API is unreachable, and the
- * honest ceiling on a claim is not something to look up over the network.
+ * not. Read from `assurance.json` beside this file rather than fetched: an
+ * agent asking "how much does this prove?" should get the same answer when
+ * the API is unreachable, and the honest ceiling on a claim is not something
+ * to look up over the network. The same file is what the Action README and
+ * the reworkdigital.io/github page render, so every surface states one
+ * ceiling.
  */
-const ASSURANCE = {
-  'workflow-identity': {
-    means:
-      'GitHub cryptographically vouched that a specific workflow run belongs to a '
-      + 'specific repository and commit, and REWORK recorded the authorship signals '
-      + 'that run observed (commit signature state, whether commits resolve to the '
-      + 'PR author, disclosed AI assistance).',
-    does_not_mean:
-      'Nobody reviewed the code, ran it, or judged its quality. It does not say the '
-      + 'work is good, only who the git history says wrote it.',
-    strength: 'moderate — strong on identity, silent on quality',
-  },
-  'reviewed-reference': {
-    means:
-      'A REWORK reviewer watched a demonstration video and confirmed it corresponds '
-      + 'to the claimed work, and the video is fingerprinted so reuse is detectable.',
-    does_not_mean:
-      'The reviewer did not audit the source, reproduce the result, or verify claims '
-      + 'made verbally in the video.',
-    strength: 'moderate — human-checked, but of a demonstration rather than the artefact',
-  },
+const ASSURANCE_SPEC = readJson('assurance.json');
+const ASSURANCE = ASSURANCE_SPEC.levels;
+
+/**
+ * Which commit-message declarations the checks count as AI assistance, from
+ * `ai-trailers.json`: the same definition the Action and the App check read.
+ * Listed in the explanation so an agent knows what "declared" means here. A
+ * declaration is something the author wrote; a count of zero means nothing
+ * was declared, never that no tool was used.
+ */
+const AI_TRAILERS = readJson('ai-trailers.json');
+const AI_DECLARATION = {
+  reads: 'Commit messages only: a Co-authored-by trailer naming one of the tools below, a '
+    + 'Claude-Session or Amp-Thread-ID trailer, or a "Generated with" line.',
+  tools: AI_TRAILERS.tools.map((t) => t.name),
+  zero_means: 'No commit message declared a tool. It does not mean no tool was used; a '
+    + 'message with no trailer looks the same either way.',
+  declared_means: 'The author chose to say so. It is reported as a fact and never lowers a result.',
 };
 
 const CREDENTIAL_TYPES = {
   REWORKWorkflowAttestation: 'A CI run whose repository identity GitHub attested via OIDC.',
+  REWORKHfJoinedPublication: 'A Hugging Face publication joined to the CI run that preceded it, confirmed by REWORK\'s own read of the Hub.',
   REWORKProofOfWorkCredential: 'A submitted piece of work that passed REWORK verification.',
   REWORKVideoProvenanceReceipt: 'A reviewed demonstration video, fingerprinted against reuse.',
   REWORKReputationPassport: "A holder's full verified history in one signed credential.",
@@ -195,9 +205,14 @@ async function callTool(name, args) {
       if (!entry) {
         return { error: `unknown assurance level: ${level}`, known: Object.keys(ASSURANCE) };
       }
-      return { assurance: level, ...entry };
+      return { assurance: level, ...entry, ai_declaration: AI_DECLARATION };
     }
-    return { assurance_levels: ASSURANCE, credential_types: CREDENTIAL_TYPES };
+    return {
+      assurance_levels: ASSURANCE,
+      what_the_check_reads: ASSURANCE_SPEC.reads,
+      ai_declaration: AI_DECLARATION,
+      credential_types: CREDENTIAL_TYPES,
+    };
   }
 
   if (name === 'lookup_rework_attestation') {

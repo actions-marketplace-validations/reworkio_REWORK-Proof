@@ -17,13 +17,49 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
+const path = require('path');
 
 const MAX_PAGES = 3;
 const PER_PAGE = 100;
 const HF_MAX_TREE_PAGES = 50;
 
-// Mirrors the server-side detector so a commit reads the same either way.
-const AI_TRAILER = /(Co-?Authored-?By:\s*(Claude|Copilot|GPT|ChatGPT|Gemini|Cursor|Devin|Codex)|Generated\s+(with|by)\s+\S+|🤖\s*Generated)/i;
+/* ── Declared AI assistance ─────────────────────────────────────────────────
+ *
+ * What counts as a declared assistant lives in `ai-trailers.json` beside this
+ * file, and every REWORK Proof runtime (this Action, the App's check run, the
+ * MCP server) reads that same definition, so a commit never reads as declared
+ * in one place and undeclared in another. The file is data, not code: a list
+ * of tool patterns and the trailer shapes they appear in.
+ *
+ * The honest limit, stated here because every summary below repeats it: this
+ * reads what the author WROTE in the commit message. "Nothing declared" means
+ * nothing declared. It never means no tool was used, because a message with
+ * no trailer looks identical whether or not one was.
+ */
+function loadAiTrailers(file) {
+  const spec = JSON.parse(fs.readFileSync(file || path.join(__dirname, 'ai-trailers.json'), 'utf8'));
+  const tools = spec.tools.map((t) => `(?:${t.pattern})`).join('|');
+  return {
+    tools: spec.tools.map((t) => t.name),
+    patterns: spec.patterns.map((p) => ({
+      id: p.id,
+      re: new RegExp(p.regex.split('{{tools}}').join(tools), 'i'),
+    })),
+  };
+}
+
+/** The matched declaration (the first pattern that hits), or null. */
+function detectAiTrailer(message, trailers) {
+  const text = message || '';
+  if (!text) return null;
+  for (const p of (trailers || AI_TRAILERS).patterns) {
+    const m = p.re.exec(text);
+    if (m) return m[0];
+  }
+  return null;
+}
+
+const AI_TRAILERS = loadAiTrailers();
 
 function out(name, value) {
   const f = process.env.GITHUB_OUTPUT;
@@ -44,6 +80,77 @@ function notice(msg) {
 function fail(msg) {
   process.stdout.write(`::error::${msg}\n`);
   process.exit(1);
+}
+
+/* ── Repository policy: when the report blocks ───────────────────────────
+ *
+ * By default this never fails a build. A repository can ask it to, and the
+ * ask lives in ONE place for both the Action and the App: the same two keys
+ * in `.github/rework-proof.yml`. When the file is in the checkout and sets
+ * either key, it is the whole statement and the workflow inputs are not
+ * consulted; without the file (or without a checkout step at all) the inputs
+ * `require-signed` / `require-ai-disclosure` decide. Only the literal words
+ * `true` and `false` count, so a quoted "true" switches nothing on.
+ */
+const POLICY_LINE = /^(require_signed|require_ai_disclosure)\s*:\s*(true|false)\s*(?:#.*)?$/;
+
+// What satisfies require_ai_disclosure when no AI was involved. The positive
+// form is the co-author trailer above; this is the explicit "none".
+const NO_AI_STATEMENT = /^\s*AI-Assisted:\s*(none|no)\s*$/im;
+
+/** The policy keys a config file text sets, or null when it sets neither. */
+function policyFromConfig(text) {
+  const out = {};
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const m = line.match(POLICY_LINE);
+    if (m) out[m[1]] = m[2] === 'true';
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** The repository's policy: the config file when it speaks, else the inputs. */
+function resolvePolicy(configText, env) {
+  const fromFile = policyFromConfig(configText);
+  if (fromFile) {
+    return {
+      requireSigned: fromFile.require_signed === true,
+      requireAiDisclosure: fromFile.require_ai_disclosure === true,
+      source: 'config',
+    };
+  }
+  const on = (v) => String(v || '').toLowerCase() === 'true';
+  return {
+    // `fail-on-unsigned` is the older spelling of `require-signed`; both work.
+    requireSigned: on(env.RP_REQUIRE_SIGNED) || on(env.RP_FAIL_ON_UNSIGNED),
+    requireAiDisclosure: on(env.RP_REQUIRE_AI_DISCLOSURE),
+    source: 'inputs',
+  };
+}
+
+/** What the policy says is not met, as sentences. Empty means the build passes. */
+function policyFailures(policy, counts) {
+  const out = [];
+  const total = Number(counts.total || 0);
+  if (!total) return out;
+  const unsigned = total - Number(counts.signed || 0);
+  if (policy.requireSigned && unsigned > 0) {
+    out.push(`require_signed: ${unsigned} of ${total} commit${total === 1 ? '' : 's'} carr${unsigned === 1 ? 'ies' : 'y'} no signature GitHub could verify.`);
+  }
+  if (policy.requireAiDisclosure && !counts.aiDisclosed && !counts.aiStated) {
+    out.push('require_ai_disclosure: no commit on this pull request states whether AI assistance was used. A Co-Authored-By trailer naming the assistant, or the line "AI-Assisted: none", satisfies it.');
+  }
+  return out;
+}
+
+/** The config file from the checkout, when there is one. */
+function readRepoConfig() {
+  const workspace = process.env.GITHUB_WORKSPACE;
+  if (!workspace) return '';
+  try {
+    return fs.readFileSync(`${workspace}/.github/rework-proof.yml`, 'utf8');
+  } catch {
+    return '';
+  }
 }
 
 async function gh(url, token) {
@@ -214,7 +321,7 @@ async function main() {
   const repo = process.env.RP_REPOSITORY;
   const apiServer = process.env.RP_API_SERVER || 'https://api.github.com';
   const attest = String(process.env.RP_ATTEST).toLowerCase() === 'true';
-  const failUnsigned = String(process.env.RP_FAIL_ON_UNSIGNED).toLowerCase() === 'true';
+  const policy = resolvePolicy(readRepoConfig(), process.env);
 
   let event = {};
   try {
@@ -275,7 +382,7 @@ async function main() {
         foreign.push(`${c.sha.slice(0, 7)} (${login})`);
       }
     }
-    if (AI_TRAILER.test((c.commit && c.commit.message) || '')) {
+    if (detectAiTrailer(c.commit && c.commit.message)) {
       aiDisclosed.push(c.sha.slice(0, 7));
     }
   }
@@ -304,8 +411,13 @@ async function main() {
     }
   }
   if (aiDisclosed.length) {
-    lines.push('', `**AI assistance disclosed** in ${aiDisclosed.length} commit${aiDisclosed.length === 1 ? '' : 's'}: ${aiDisclosed.slice(0, 10).join(', ')}`);
-    lines.push('', 'This does not lower the result. Declaring a co-author is good practice, and REWORK reports it rather than penalising it.');
+    lines.push('', `**AI assistance declared** in ${aiDisclosed.length} commit${aiDisclosed.length === 1 ? '' : 's'}: ${aiDisclosed.slice(0, 10).join(', ')}`);
+    lines.push('', 'The author wrote the declaration in the commit message. That is good practice, not a flag, and it does not lower the result.');
+  } else {
+    // "None declared" is the only honest phrasing. A message with no trailer
+    // looks the same whether or not a tool wrote the code, so this line can
+    // report absence of a declaration and nothing more.
+    lines.push('', '**No AI assistance declared.** None of these commit messages names a coding assistant. That means none was declared, not that none was used: this reads commit messages, it cannot see how the code was written.');
   }
   if (truncated) {
     lines.push('', `**Only the first ${PER_PAGE * MAX_PAGES} commits were read.** This pull request is larger than that, so the result is inconclusive rather than clean.`);
@@ -376,9 +488,21 @@ async function main() {
 
   summary(lines.join('\n'));
 
-  if (failUnsigned && signed < total) {
-    fail(`${total - signed} unsigned commit(s) and fail-on-unsigned is enabled.`);
+  // Outside the loop above on purpose: the statement is a property of the
+  // pull request (any commit may carry it), and it is read only by the
+  // policy, never reported as a finding.
+  const aiStated = commits.some((c) => NO_AI_STATEMENT.test((c.commit && c.commit.message) || ''));
+  const failures = policyFailures(policy, { total, signed, aiDisclosed: aiDisclosed.length, aiStated });
+  if (failures.length) {
+    const where = policy.source === 'config' ? '.github/rework-proof.yml' : 'the workflow inputs';
+    fail(`This repository asked for this check to block (${where}). Not met: ${failures.join(' ')}`);
   }
 }
 
-main().catch((err) => fail(`REWORK Proof failed: ${err.message}`));
+// Loaded as a module (the published checks execute the detector against a
+// fixture corpus), nothing runs; invoked by the action, everything does.
+if (require.main === module) {
+  main().catch((err) => fail(`REWORK Proof failed: ${err.message}`));
+}
+
+module.exports = { loadAiTrailers, detectAiTrailer, hfManifestDigest };

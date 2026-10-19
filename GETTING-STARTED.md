@@ -43,7 +43,7 @@ jobs:
   proof:
     runs-on: ubuntu-latest
     steps:
-      - uses: Reworkdigital-io/REWORK-Proof@v1
+      - uses: reworkio/REWORK-Proof@v1
 ```
 
 That's the whole setup — no token to create, no secret to store, no account.
@@ -86,7 +86,7 @@ jobs:
   proof:
     runs-on: ubuntu-latest
     steps:
-      - uses: Reworkdigital-io/REWORK-Proof@v1
+      - uses: reworkio/REWORK-Proof@v1
         with:
           attest: true
 ```
@@ -121,6 +121,13 @@ more later; you never have to grant it your whole account.
 The install screen lists the permissions. It asks to *read* pull requests and
 their commits, and to write **checks** — that last one is how the result
 appears on the pull request. It does not ask for write access to your code.
+
+That holds afterwards too. If you link the installation to a REWORK account,
+the setup page it sends you to lists the repositories the installation covers
+and offers the Action's workflow file for each one that does not have it yet:
+copy the workflow, open the repository on GitHub with the file already named,
+paste and commit it to your default branch. The commit is yours, made with
+your own credentials. The App never writes to a repository.
 
 ### 4. Open a pull request
 
@@ -164,6 +171,11 @@ branch** — a pull request editing it is still verified under the rules the
 default branch had, so a PR can't write its own exemptions. No file means no
 change to how the check behaves.
 
+The same file can also make the check **block**, for this repository only:
+`require_signed: true` and `require_ai_disclosure: true`. The README's
+"Make it blocking" section says exactly what each one fails and how a pull
+request written without AI satisfies the second.
+
 ---
 
 ## Trying it properly
@@ -176,7 +188,7 @@ git checkout -b proof-test
 
 git commit --allow-empty -m "plain unsigned commit"
 
-git commit --allow-empty -m "discloses AI assistance
+git commit --allow-empty -m "declares AI assistance
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
@@ -197,7 +209,7 @@ Open the pull request and check four things:
 | What to look for | Why it matters |
 |---|---|
 | The result is never a red ✗ | Most repositories don't sign commits. A failing check on an honest pull request is wrong. |
-| The AI commit is named, but the result isn't lowered | Penalising the trailer would just teach people to delete it, destroying the signal for whoever needed it. |
+| The AI commit is named, but the result isn't lowered | Penalising the trailer would just teach people to delete it, destroying the signal for whoever needed it. The other three say "no AI assistance declared", not "none used": the check reads commit messages, nothing more. |
 | `github-actions[bot]` is listed under "Automation commits", not as a human co-author | Bot accounts end in `[bot]` — a dependency bump is routine, and listing it beside human co-authors would read as an accusation. |
 | The **unresolvable** author is *not* listed there | A commit whose email never matched a GitHub account is ordinary. Treating it as an impostor would make the check noise. |
 
@@ -275,7 +287,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_WRITE_TOKEN }}
 
-      - uses: Reworkdigital-io/REWORK-Proof@v1
+      - uses: reworkio/REWORK-Proof@v1
         with:
           attest: true
           hf-repo: <your-hf-owner>/<your-model>

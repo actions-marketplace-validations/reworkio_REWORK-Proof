@@ -31,11 +31,31 @@ inputs:
     required: false
     default: 'https://api.reworkdigital.io/api/v1'
 
-  fail-on-unsigned:
+  require-signed:
     description: >-
       Fail the check when any commit is unsigned. Off by default and we
       recommend leaving it off: most repositories never enable signing, and
-      an unsigned commit is not a defect.
+      an unsigned commit is not a defect. A `require_signed` key in
+      `.github/rework-proof.yml` (when the workflow checks the repository
+      out) takes precedence over this input, so the Action and the App read
+      one policy.
+    required: false
+    default: 'false'
+
+  require-ai-disclosure:
+    description: >-
+      Fail the check when no commit on the pull request states whether AI
+      assistance was used: a `Co-Authored-By:` trailer naming the assistant,
+      or the line `AI-Assisted: none`. Off by default. A
+      `require_ai_disclosure` key in `.github/rework-proof.yml` takes
+      precedence, as above.
+    required: false
+    default: 'false'
+
+  fail-on-unsigned:
+    description: >-
+      The older spelling of `require-signed`; either switches the same
+      thing on. Kept so existing workflows keep working.
     required: false
     default: 'false'
 
@@ -133,6 +153,8 @@ runs:
         RP_ATTEST: ${{ inputs.attest }}
         RP_API_URL: ${{ inputs.api-url }}
         RP_FAIL_ON_UNSIGNED: ${{ inputs.fail-on-unsigned }}
+        RP_REQUIRE_SIGNED: ${{ inputs.require-signed }}
+        RP_REQUIRE_AI_DISCLOSURE: ${{ inputs.require-ai-disclosure }}
         RP_REPOSITORY: ${{ github.repository }}
         RP_EVENT_PATH: ${{ github.event_path }}
         RP_API_SERVER: ${{ github.api_url }}
