@@ -1,5 +1,5 @@
 name: 'REWORK Proof Check'
-description: 'Report who actually wrote the commits in a pull request: signature state, author attribution, disclosed AI assistance.'
+description: 'Report who actually wrote the commits in a pull request: signature state, author attribution, declared AI assistance.'
 author: 'REWORK Digital'
 
 branding:

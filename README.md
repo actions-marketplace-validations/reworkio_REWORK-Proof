@@ -1,7 +1,7 @@
 # REWORK Proof Check
 
 Reports who actually wrote the commits in a pull request — signature state,
-author attribution, and disclosed AI assistance — as a job summary.
+author attribution, and declared AI assistance — as a job summary.
 
 By default it sends **nothing anywhere**. It reads the pull request's commits
 with the token your workflow already has and writes a summary. No account, no
