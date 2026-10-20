@@ -1,0 +1,41 @@
+{
+  "$comment": "The one statement of what a REWORK assurance level proves and what it does not. The MCP server reads this file at runtime for explain_rework_assurance and for the assurance_note on every verified credential; the Action README and the reworkdigital.io/github page render the same text, and a published check fails the build when any rendered copy drifts from this file. Edit here, nowhere else.",
+  "levels": {
+    "workflow-identity": {
+      "title": "Workflow identity",
+      "means": "GitHub cryptographically vouched that a specific workflow run belongs to a specific repository and commit, and REWORK recorded the authorship signals that run observed: commit signature state, whether each commit resolves to the pull request author, and how many commit messages declared AI assistance.",
+      "does_not_mean": "Nobody reviewed the code, ran it, or judged its quality. It does not say the work is good, only who the git history says wrote it. The AI count is what authors declared in commit messages: a zero means nothing was declared, not that no tool was used.",
+      "strength": "moderate: strong on identity, silent on quality"
+    },
+    "reviewed-reference": {
+      "title": "Reviewed reference",
+      "means": "A REWORK reviewer watched a demonstration video and confirmed it corresponds to the claimed work, and the video is fingerprinted so reuse is detectable.",
+      "does_not_mean": "The reviewer did not audit the source, reproduce the result, or verify claims made verbally in the video.",
+      "strength": "moderate: human-checked, but of a demonstration rather than the artefact"
+    },
+    "cross-platform-join": {
+      "title": "Cross-platform join",
+      "means": "The exact bytes named by a manifest digest were present in the named Hugging Face repository, at the named commit, immediately after the named GitHub Actions run, confirmed by REWORK's own independent read of the Hub; and one REWORK account holds both the App installation on the GitHub repository's owner and a verified write-control claim on the Hugging Face repository.",
+      "does_not_mean": "It does not prove that the workflow produced, trained, or evaluated the content. A run that downloads someone else's files and uploads them also carries bytes. Read the workflow reference to judge what the run actually did.",
+      "strength": "moderate: strong on which bytes landed where and who controls both ends, silent on how they were made"
+    }
+  },
+  "reads": [
+    {
+      "title": "Signatures, from GitHub rather than from the commit.",
+      "body": "A commit's author line is free text that anyone can set. The check reads GitHub's own verification result and the account-resolved author login instead, which is what closes the gap between \"it says your name\" and \"it is yours\"."
+    },
+    {
+      "title": "Declared AI assistance, counted and not penalised.",
+      "body": "A commit message that names a coding assistant (a Co-authored-by trailer, a Generated-with line) is recorded as something the author chose to declare. That is a good sign, not a flag, and it never lowers the result. The check reads messages, not keystrokes: \"none declared\" means none was declared, not that none was used."
+    },
+    {
+      "title": "It re-checks after the day it passed.",
+      "body": "A repository can be renamed, made private, or deleted long after a proof was verified. A nightly sweep re-reads what each GitHub proof points at and marks the ones whose evidence moved, so a proof ages into \"stale\" rather than into a quiet lie."
+    },
+    {
+      "title": "It never fails an honest repository.",
+      "body": "There is no red state. The check reports what it saw; it does not grade a pull request, and nothing here can leave a mark on someone else's work."
+    }
+  ]
+}
